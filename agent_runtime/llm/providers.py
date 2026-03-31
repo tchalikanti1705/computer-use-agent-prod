@@ -38,8 +38,7 @@ class OpenAIProvider(BaseLLMProvider):
             if itype == "computer_call":
                 acts = item["actions"] if isinstance(item, dict) else getattr(item, "actions", [])
                 cid = item["call_id"] if isinstance(item, dict) else getattr(item, "call_id", "")
-                cc = {"call_id": cid, "actions": [dict(a) if isinstance(a, dict) else
-                    {k: getattr(a,k) for k in dir(a) if not k.startswith("_") and not callable(getattr(a,k))} for a in acts]}
+                cc = {"call_id": cid, "actions": [self._clean_action(a) for a in acts]}
             elif itype == "message":
                 content = item["content"] if isinstance(item, dict) else getattr(item, "content", [])
                 for c in content:
@@ -48,6 +47,15 @@ class OpenAIProvider(BaseLLMProvider):
                         msgs.append(c["text"] if isinstance(c, dict) else getattr(c, "text", ""))
         return {"id": getattr(response, "id", ""), "computer_call": cc, "messages": msgs,
                 "usage": {"total_tokens": getattr(getattr(response, "usage", None), "total_tokens", 0)}}
+
+    def _clean_action(self, action) -> dict:
+        """Convert action object to clean dict, skipping Pydantic internals."""
+        if isinstance(action, dict):
+            return action
+        if hasattr(action, "model_dump"):
+            return action.model_dump(exclude_none=True)
+        FIELDS = {"type", "x", "y", "button", "text", "keys", "scrollX", "scrollY", "url"}
+        return {k: getattr(action, k) for k in FIELDS if hasattr(action, k)}
 
 class AnthropicProvider(BaseLLMProvider):
     def __init__(self, api_key: str, model: str = "claude-sonnet-4-20250514"):
