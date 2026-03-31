@@ -106,7 +106,13 @@ def run_local(message: str):
     vm_screenshot_to_file(vm, step)
 
     print(f"[Step {step}] Sending initial screenshot to LLM...")
-    response = llm.initial_response(message, screenshot_b64)
+    wrapped_message = (
+        f"{message}\n\n"
+        "IMPORTANT: When the task is complete, describe in detail what you see on screen — "
+        "include specific data, numbers, or text visible in the results. "
+        "Do NOT just say 'Done'. Give a clear summary of the outcome."
+    )
+    response = llm.initial_response(wrapped_message, screenshot_b64)
     response_id = response["id"]
     total_tokens += response["usage"]["total_tokens"]
 
@@ -210,7 +216,11 @@ def action_to_str(action: dict) -> str:
         return f"keypress({action.get('keys', [])})"
     if t == "scroll":
         return f"scroll(scrollY={action.get('scrollY', 0)})"
-    return str(action)
+    if t == "screenshot":
+        return "screenshot()"
+    if t == "wait":
+        return "wait()"
+    return f"{t}()"
 
 
 if __name__ == "__main__":
